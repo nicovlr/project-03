@@ -13,10 +13,7 @@ logger = logging.getLogger(__name__)
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Lowercase, strip, and snake_case column names."""
     df = df.copy()
-    df.columns = [
-        re.sub(r"[^a-z0-9]+", "_", col.strip().lower()).strip("_")
-        for col in df.columns
-    ]
+    df.columns = [re.sub(r"[^a-z0-9]+", "_", col.strip().lower()).strip("_") for col in df.columns]
     return df
 
 

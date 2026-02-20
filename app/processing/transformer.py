@@ -67,19 +67,25 @@ def transform_region_budgets(df: pd.DataFrame) -> pd.DataFrame:
     # Clean region name
     if "region_name" in df.columns:
         df["region_name"] = (
-            df["region_name"]
-            .str.replace(r"^REG\s+", "", regex=True)
-            .str.strip()
-            .str.title()
+            df["region_name"].str.replace(r"^REG\s+", "", regex=True).str.strip().str.title()
         )
 
-    keep = [c for c in [
-        "year", "region_code", "region_name",
-        "total_revenue", "total_expenditure",
-        "operating_revenue", "operating_expenditure",
-        "investment_revenue", "investment_expenditure",
-        "debt",
-    ] if c in df.columns]
+    keep = [
+        c
+        for c in [
+            "year",
+            "region_code",
+            "region_name",
+            "total_revenue",
+            "total_expenditure",
+            "operating_revenue",
+            "operating_expenditure",
+            "investment_revenue",
+            "investment_expenditure",
+            "debt",
+        ]
+        if c in df.columns
+    ]
 
     df = df[keep].dropna(subset=["year", "region_code"])
     df["year"] = df["year"].astype(int)
@@ -90,6 +96,7 @@ def transform_region_budgets(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Communes helpers
 # ---------------------------------------------------------------------------
+
 
 def aggregate_communes_by_region(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate commune data to the region level.
@@ -112,11 +119,15 @@ def aggregate_communes_by_region(df: pd.DataFrame) -> pd.DataFrame:
     df[pop_col] = pd.to_numeric(df[pop_col], errors="coerce").fillna(0).astype(int)
     df[code_col] = df[code_col].astype(str).str.strip()
 
-    agg = df.groupby(code_col).agg(
-        total_population=(pop_col, "sum"),
-        num_communes=(pop_col, "count"),
-        region_name=(name_col, "first") if name_col else (code_col, "first"),
-    ).reset_index()
+    agg = (
+        df.groupby(code_col)
+        .agg(
+            total_population=(pop_col, "sum"),
+            num_communes=(pop_col, "count"),
+            region_name=(name_col, "first") if name_col else (code_col, "first"),
+        )
+        .reset_index()
+    )
 
     agg = agg.rename(columns={code_col: "region_code"})
     logger.info("Aggregated communes into %d regions", len(agg))
@@ -126,6 +137,7 @@ def aggregate_communes_by_region(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Cross-join: budget + demographics → per-capita stats
 # ---------------------------------------------------------------------------
+
 
 def compute_region_stats(
     budgets: pd.DataFrame,
@@ -142,7 +154,9 @@ def compute_region_stats(
     communes_agg = communes_agg.copy()
 
     budgets["region_code"] = budgets["region_code"].astype(str).str.strip().str.lstrip("0")
-    communes_agg["region_code"] = communes_agg["region_code"].astype(str).str.strip().str.lstrip("0")
+    communes_agg["region_code"] = (
+        communes_agg["region_code"].astype(str).str.strip().str.lstrip("0")
+    )
 
     merged = budgets.merge(
         communes_agg[["region_code", "total_population", "num_communes"]],
@@ -162,9 +176,15 @@ def compute_region_stats(
     ).round(2)
 
     keep = [
-        "year", "region_code", "region_name",
-        "total_population", "total_revenue", "total_expenditure",
-        "revenue_per_capita", "expenditure_per_capita", "num_communes",
+        "year",
+        "region_code",
+        "region_name",
+        "total_population",
+        "total_revenue",
+        "total_expenditure",
+        "revenue_per_capita",
+        "expenditure_per_capita",
+        "num_communes",
     ]
     merged = merged[[c for c in keep if c in merged.columns]]
     logger.info("Region stats computed: %d rows", len(merged))
@@ -216,18 +236,31 @@ def transform_employment(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     # Coerce numeric columns
-    for col in ["salary_mass", "salary_yoy_change", "partial_unemployment_base", "partial_unemployment_share"]:
+    for col in [
+        "salary_mass",
+        "salary_yoy_change",
+        "partial_unemployment_base",
+        "partial_unemployment_share",
+    ]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     if "region_code" in df.columns:
         df["region_code"] = df["region_code"].astype(str).str.strip()
 
-    keep = [c for c in [
-        "region_code", "region_name", "month",
-        "salary_mass", "salary_yoy_change",
-        "partial_unemployment_base", "partial_unemployment_share",
-    ] if c in df.columns]
+    keep = [
+        c
+        for c in [
+            "region_code",
+            "region_name",
+            "month",
+            "salary_mass",
+            "salary_yoy_change",
+            "partial_unemployment_base",
+            "partial_unemployment_share",
+        ]
+        if c in df.columns
+    ]
 
     df = df[keep].dropna(subset=["month"])
     logger.info("Transformed employment data: %d rows", len(df))
@@ -237,6 +270,7 @@ def transform_employment(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
+
 
 def _find_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
     for c in candidates:

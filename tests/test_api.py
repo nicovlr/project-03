@@ -6,6 +6,7 @@ Uses an in-memory SQLite database to avoid requiring PostgreSQL.
 from __future__ import annotations
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -38,8 +39,6 @@ def override_get_db():
 # App setup
 # ---------------------------------------------------------------------------
 
-from fastapi import FastAPI
-
 app = FastAPI()
 app.include_router(router)
 app.dependency_overrides[get_db] = override_get_db
@@ -50,6 +49,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def setup_db():
@@ -63,38 +63,73 @@ def setup_db():
     db.commit()
 
     # Seed data
-    db.add(RegionBudget(
-        year=2023, region_code="011", region_name="Ile-de-France",
-        total_revenue=6_000_000, total_expenditure=5_300_000,
-        operating_revenue=5_000_000, operating_expenditure=4_500_000,
-        investment_revenue=1_000_000, investment_expenditure=800_000,
-        debt=2_000_000,
-    ))
-    db.add(RegionBudget(
-        year=2023, region_code="024", region_name="Centre-Val de Loire",
-        total_revenue=2_500_000, total_expenditure=2_200_000,
-        operating_revenue=2_000_000, operating_expenditure=1_800_000,
-        investment_revenue=500_000, investment_expenditure=400_000,
-        debt=800_000,
-    ))
-    db.add(Commune(
-        code_insee="75056", name="Paris",
-        region_code="11", region_name="Ile-de-France",
-        department_code="75", department_name="Paris",
-        population=2_165_423, area_km2=105.4, density=20_545,
-    ))
-    db.add(Commune(
-        code_insee="45234", name="Orleans",
-        region_code="24", region_name="Centre-Val de Loire",
-        department_code="45", department_name="Loiret",
-        population=116_685, area_km2=27.5, density=4_243,
-    ))
-    db.add(RegionStats(
-        year=2023, region_code="11", region_name="Ile-de-France",
-        total_population=2_165_423, total_revenue=6_000_000,
-        total_expenditure=5_300_000, revenue_per_capita=2.77,
-        expenditure_per_capita=2.45, num_communes=1,
-    ))
+    db.add(
+        RegionBudget(
+            year=2023,
+            region_code="011",
+            region_name="Ile-de-France",
+            total_revenue=6_000_000,
+            total_expenditure=5_300_000,
+            operating_revenue=5_000_000,
+            operating_expenditure=4_500_000,
+            investment_revenue=1_000_000,
+            investment_expenditure=800_000,
+            debt=2_000_000,
+        )
+    )
+    db.add(
+        RegionBudget(
+            year=2023,
+            region_code="024",
+            region_name="Centre-Val de Loire",
+            total_revenue=2_500_000,
+            total_expenditure=2_200_000,
+            operating_revenue=2_000_000,
+            operating_expenditure=1_800_000,
+            investment_revenue=500_000,
+            investment_expenditure=400_000,
+            debt=800_000,
+        )
+    )
+    db.add(
+        Commune(
+            code_insee="75056",
+            name="Paris",
+            region_code="11",
+            region_name="Ile-de-France",
+            department_code="75",
+            department_name="Paris",
+            population=2_165_423,
+            area_km2=105.4,
+            density=20_545,
+        )
+    )
+    db.add(
+        Commune(
+            code_insee="45234",
+            name="Orleans",
+            region_code="24",
+            region_name="Centre-Val de Loire",
+            department_code="45",
+            department_name="Loiret",
+            population=116_685,
+            area_km2=27.5,
+            density=4_243,
+        )
+    )
+    db.add(
+        RegionStats(
+            year=2023,
+            region_code="11",
+            region_name="Ile-de-France",
+            total_population=2_165_423,
+            total_revenue=6_000_000,
+            total_expenditure=5_300_000,
+            revenue_per_capita=2.77,
+            expenditure_per_capita=2.45,
+            num_communes=1,
+        )
+    )
     db.commit()
     db.close()
 
@@ -106,6 +141,7 @@ def setup_db():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestHealthEndpoint:
     def test_health_ok(self):

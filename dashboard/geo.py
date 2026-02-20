@@ -4,8 +4,7 @@ from __future__ import annotations
 
 # URL of the official GeoJSON for French regions (IGN simplified)
 REGIONS_GEOJSON_URL = (
-    "https://raw.githubusercontent.com/gregoiredavid/france-geojson/"
-    "master/regions.geojson"
+    "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions.geojson"
 )
 
 # Mapping from region budget 3-digit codes (stripped of leading zeros)

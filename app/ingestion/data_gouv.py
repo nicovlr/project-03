@@ -104,6 +104,7 @@ def download_resource(resource_id: str, sep: str | None = None) -> pd.DataFrame:
 # High-level helpers for the demo pipeline
 # ---------------------------------------------------------------------------
 
+
 def ingest_region_budgets() -> pd.DataFrame:
     """Download the regional budget dataset CSV."""
     meta = get_dataset_metadata(DATASETS["region_budgets"])

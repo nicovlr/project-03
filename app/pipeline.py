@@ -61,18 +61,20 @@ def _store_budgets(db: Session, df) -> int:
     db.query(RegionBudget).delete()
     records = []
     for _, row in df.iterrows():
-        records.append(RegionBudget(
-            year=int(row["year"]),
-            region_code=str(row["region_code"]),
-            region_name=row.get("region_name"),
-            total_revenue=row.get("total_revenue"),
-            total_expenditure=row.get("total_expenditure"),
-            operating_revenue=row.get("operating_revenue"),
-            operating_expenditure=row.get("operating_expenditure"),
-            investment_revenue=row.get("investment_revenue"),
-            investment_expenditure=row.get("investment_expenditure"),
-            debt=row.get("debt"),
-        ))
+        records.append(
+            RegionBudget(
+                year=int(row["year"]),
+                region_code=str(row["region_code"]),
+                region_name=row.get("region_name"),
+                total_revenue=row.get("total_revenue"),
+                total_expenditure=row.get("total_expenditure"),
+                operating_revenue=row.get("operating_revenue"),
+                operating_expenditure=row.get("operating_expenditure"),
+                investment_revenue=row.get("investment_revenue"),
+                investment_expenditure=row.get("investment_expenditure"),
+                debt=row.get("debt"),
+            )
+        )
     db.bulk_save_objects(records)
     db.commit()
     return len(records)
@@ -103,17 +105,19 @@ def _store_communes(db: Session, df) -> int:
     records = []
     for _, row in df.iterrows():
         pop = _get(row, "population")
-        records.append(Commune(
-            code_insee=str(_get(row, "code_insee") or ""),
-            name=str(_get(row, "name") or ""),
-            region_code=str(_get(row, "region_code") or ""),
-            region_name=str(_get(row, "region_name") or ""),
-            department_code=str(_get(row, "department_code") or ""),
-            department_name=str(_get(row, "department_name") or ""),
-            population=int(pop) if pop and pop == pop else 0,
-            area_km2=float(_get(row, "area_km2") or 0),
-            density=float(_get(row, "density") or 0),
-        ))
+        records.append(
+            Commune(
+                code_insee=str(_get(row, "code_insee") or ""),
+                name=str(_get(row, "name") or ""),
+                region_code=str(_get(row, "region_code") or ""),
+                region_name=str(_get(row, "region_name") or ""),
+                department_code=str(_get(row, "department_code") or ""),
+                department_name=str(_get(row, "department_name") or ""),
+                population=int(pop) if pop and pop == pop else 0,
+                area_km2=float(_get(row, "area_km2") or 0),
+                density=float(_get(row, "density") or 0),
+            )
+        )
     db.bulk_save_objects(records)
     db.commit()
     return len(records)
@@ -124,17 +128,19 @@ def _store_region_stats(db: Session, df) -> int:
     db.query(RegionStats).delete()
     records = []
     for _, row in df.iterrows():
-        records.append(RegionStats(
-            year=int(row["year"]),
-            region_code=str(row["region_code"]),
-            region_name=row.get("region_name"),
-            total_population=int(row.get("total_population", 0)),
-            total_revenue=row.get("total_revenue"),
-            total_expenditure=row.get("total_expenditure"),
-            revenue_per_capita=row.get("revenue_per_capita"),
-            expenditure_per_capita=row.get("expenditure_per_capita"),
-            num_communes=int(row.get("num_communes", 0)),
-        ))
+        records.append(
+            RegionStats(
+                year=int(row["year"]),
+                region_code=str(row["region_code"]),
+                region_name=row.get("region_name"),
+                total_population=int(row.get("total_population", 0)),
+                total_revenue=row.get("total_revenue"),
+                total_expenditure=row.get("total_expenditure"),
+                revenue_per_capita=row.get("revenue_per_capita"),
+                expenditure_per_capita=row.get("expenditure_per_capita"),
+                num_communes=int(row.get("num_communes", 0)),
+            )
+        )
     db.bulk_save_objects(records)
     db.commit()
     return len(records)
@@ -145,15 +151,17 @@ def _store_employment(db: Session, df) -> int:
     db.query(RegionEmployment).delete()
     records = []
     for _, row in df.iterrows():
-        records.append(RegionEmployment(
-            region_code=str(row.get("region_code", "")),
-            region_name=row.get("region_name"),
-            month=str(row.get("month", "")),
-            salary_mass=row.get("salary_mass"),
-            salary_yoy_change=row.get("salary_yoy_change"),
-            partial_unemployment_base=row.get("partial_unemployment_base"),
-            partial_unemployment_share=row.get("partial_unemployment_share"),
-        ))
+        records.append(
+            RegionEmployment(
+                region_code=str(row.get("region_code", "")),
+                region_name=row.get("region_name"),
+                month=str(row.get("month", "")),
+                salary_mass=row.get("salary_mass"),
+                salary_yoy_change=row.get("salary_yoy_change"),
+                partial_unemployment_base=row.get("partial_unemployment_base"),
+                partial_unemployment_share=row.get("partial_unemployment_share"),
+            )
+        )
     db.bulk_save_objects(records)
     db.commit()
     return len(records)
@@ -189,7 +197,9 @@ def run_pipeline() -> dict[str, int]:
         budgets = transform_region_budgets(clean_budgets)
         communes_agg = aggregate_communes_by_region(clean_communes)
         region_stats = compute_region_stats(budgets, communes_agg)
-        employment = transform_employment(clean_employment) if clean_employment is not None else None
+        employment = (
+            transform_employment(clean_employment) if clean_employment is not None else None
+        )
 
         # 4. Store
         logger.info("=== STEP 4: Storing to database ===")

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,9 @@ def _run_pipeline_job():
     logger.info("Scheduled pipeline run starting ...")
     try:
         from app.pipeline import run_pipeline
+
         counts = run_pipeline()
-        _last_run = datetime.now(timezone.utc)
+        _last_run = datetime.now(UTC)
         logger.info("Scheduled pipeline run complete: %s", counts)
     except Exception:
         logger.exception("Scheduled pipeline run failed")

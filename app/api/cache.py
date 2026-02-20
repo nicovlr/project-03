@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 _cache: dict[str, tuple[float, Any]] = {}
 
@@ -16,6 +17,7 @@ def cached(ttl: int = DEFAULT_TTL):
 
     The cache key is built from the function name and its arguments.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -28,7 +30,9 @@ def cached(ttl: int = DEFAULT_TTL):
             result = func(*args, **kwargs)
             _cache[key] = (now + ttl, result)
             return result
+
         return wrapper
+
     return decorator
 
 

@@ -13,17 +13,16 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.api.auth import verify_api_key
-from app.api.cache import cached, clear_cache
+from app.api.cache import clear_cache
 from app.api.schemas import (
     BudgetListOut,
     CommuneListOut,
     CommuneOut,
     DatasetOut,
+    EmploymentListOut,
     HealthOut,
     KPIsOut,
     MetricsOut,
-    PipelineRunOut,
-    EmploymentListOut,
     RegionBudgetOut,
     RegionEmploymentOut,
     RegionStatsOut,
@@ -54,6 +53,7 @@ def _inc_requests():
 # Datasets
 # ---------------------------------------------------------------------------
 
+
 @router.get("/datasets", summary="List ingested datasets", response_model=list[DatasetOut])
 def list_datasets(
     db: Session = Depends(get_db),
@@ -67,6 +67,7 @@ def list_datasets(
 # ---------------------------------------------------------------------------
 # Region budgets
 # ---------------------------------------------------------------------------
+
 
 @router.get("/budgets", summary="Query region budgets", response_model=BudgetListOut)
 def list_budgets(
@@ -94,6 +95,7 @@ def list_budgets(
 # ---------------------------------------------------------------------------
 # Communes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/communes", summary="Query communes", response_model=CommuneListOut)
 def list_communes(
@@ -125,7 +127,12 @@ def list_communes(
 # Region stats (cross-joined view)
 # ---------------------------------------------------------------------------
 
-@router.get("/stats/regions", summary="Region-level KPIs (budget x demographics)", response_model=list[RegionStatsOut])
+
+@router.get(
+    "/stats/regions",
+    summary="Region-level KPIs (budget x demographics)",
+    response_model=list[RegionStatsOut],
+)
 def list_region_stats(
     year: int | None = Query(None),
     region_code: str | None = Query(None),
@@ -146,6 +153,7 @@ def list_region_stats(
 # Employment
 # ---------------------------------------------------------------------------
 
+
 @router.get("/employment", summary="Regional employment data", response_model=EmploymentListOut)
 def list_employment(
     region_code: str | None = Query(None),
@@ -162,7 +170,12 @@ def list_employment(
     if month:
         q = q.filter(RegionEmployment.month == month)
     total = q.count()
-    rows = q.order_by(RegionEmployment.month.desc(), RegionEmployment.region_name).offset(offset).limit(limit).all()
+    rows = (
+        q.order_by(RegionEmployment.month.desc(), RegionEmployment.region_name)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     return EmploymentListOut(
         total=total,
         data=[RegionEmploymentOut.model_validate(r) for r in rows],
@@ -173,6 +186,7 @@ def list_employment(
 # Summary KPIs
 # ---------------------------------------------------------------------------
 
+
 @router.get("/kpis", summary="High-level KPIs", response_model=KPIsOut)
 def get_kpis(
     db: Session = Depends(get_db),
@@ -182,9 +196,7 @@ def get_kpis(
     total_communes = db.query(func.count(Commune.id)).scalar() or 0
     total_regions = db.query(func.count(func.distinct(RegionBudget.region_code))).scalar() or 0
     total_population = db.query(func.sum(Commune.population)).scalar() or 0
-    budget_years = db.query(
-        func.min(RegionBudget.year), func.max(RegionBudget.year)
-    ).first()
+    budget_years = db.query(func.min(RegionBudget.year), func.max(RegionBudget.year)).first()
     return KPIsOut(
         total_communes=total_communes,
         total_regions=total_regions,
@@ -199,6 +211,7 @@ def get_kpis(
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
+
 
 @router.get("/export/budgets", summary="Export budgets as CSV")
 def export_budgets_csv(
@@ -250,6 +263,7 @@ def export_stats_csv(
 # Metrics
 # ---------------------------------------------------------------------------
 
+
 @router.get("/metrics", summary="Application metrics", response_model=MetricsOut)
 def get_metrics(
     db: Session = Depends(get_db),
@@ -268,6 +282,7 @@ def get_metrics(
 # Cache management
 # ---------------------------------------------------------------------------
 
+
 @router.post("/cache/clear", summary="Clear API cache")
 def flush_cache(_key: str = Depends(verify_api_key)) -> dict[str, Any]:
     evicted = clear_cache()
@@ -278,10 +293,11 @@ def flush_cache(_key: str = Depends(verify_api_key)) -> dict[str, Any]:
 # Health
 # ---------------------------------------------------------------------------
 
+
 @router.get("/health", summary="Health check", response_model=HealthOut)
 def health(db: Session = Depends(get_db)) -> HealthOut:
     try:
         db.execute(text("SELECT 1"))
         return HealthOut(status="ok", database="connected")
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"DB error: {exc}")
+        raise HTTPException(status_code=503, detail=f"DB error: {exc}") from exc

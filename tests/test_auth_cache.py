@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 
 import pytest
@@ -67,38 +66,41 @@ class TestAuthModule:
     def test_open_mode_when_no_key_set(self):
         """When GOVSENSE_API_KEY is not set, auth should pass."""
         import app.api.auth as auth_module
+
         original = auth_module.API_KEY
         auth_module.API_KEY = None
         try:
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
-                auth_module.verify_api_key(None)
-            )
+
+            result = asyncio.get_event_loop().run_until_complete(auth_module.verify_api_key(None))
             assert result is None
         finally:
             auth_module.API_KEY = original
 
     def test_reject_wrong_key(self):
-        import app.api.auth as auth_module
         from fastapi import HTTPException
+
+        import app.api.auth as auth_module
+
         original = auth_module.API_KEY
         auth_module.API_KEY = "secret-key-123"
         try:
             import asyncio
+
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.get_event_loop().run_until_complete(
-                    auth_module.verify_api_key("wrong-key")
-                )
+                asyncio.get_event_loop().run_until_complete(auth_module.verify_api_key("wrong-key"))
             assert exc_info.value.status_code == 403
         finally:
             auth_module.API_KEY = original
 
     def test_accept_correct_key(self):
         import app.api.auth as auth_module
+
         original = auth_module.API_KEY
         auth_module.API_KEY = "secret-key-123"
         try:
             import asyncio
+
             result = asyncio.get_event_loop().run_until_complete(
                 auth_module.verify_api_key("secret-key-123")
             )

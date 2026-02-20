@@ -23,41 +23,56 @@ from app.processing.transformer import (
     transform_region_budgets,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def raw_budget_df() -> pd.DataFrame:
     """Simulates raw data from the region budgets CSV."""
-    return pd.DataFrame({
-        "exer": [2023, 2023, 2022, 2022],
-        "reg": ["011", "024", "011", "024"],
-        "lbudg": ["REG ILE-DE-FRANCE", "REG CENTRE-VAL DE LOIRE", "REG ILE-DE-FRANCE", "REG CENTRE-VAL DE LOIRE"],
-        "rec_totales_f": [5_000_000, 2_000_000, 4_800_000, 1_900_000],
-        "dep_totales_f": [4_500_000, 1_800_000, 4_300_000, 1_700_000],
-        "rec_totales_i": [1_000_000, 500_000, 900_000, 450_000],
-        "dep_totales_i": [800_000, 400_000, 750_000, 380_000],
-        "encours_de_dette": [2_000_000, 800_000, 2_100_000, 850_000],
-    })
+    return pd.DataFrame(
+        {
+            "exer": [2023, 2023, 2022, 2022],
+            "reg": ["011", "024", "011", "024"],
+            "lbudg": [
+                "REG ILE-DE-FRANCE",
+                "REG CENTRE-VAL DE LOIRE",
+                "REG ILE-DE-FRANCE",
+                "REG CENTRE-VAL DE LOIRE",
+            ],
+            "rec_totales_f": [5_000_000, 2_000_000, 4_800_000, 1_900_000],
+            "dep_totales_f": [4_500_000, 1_800_000, 4_300_000, 1_700_000],
+            "rec_totales_i": [1_000_000, 500_000, 900_000, 450_000],
+            "dep_totales_i": [800_000, 400_000, 750_000, 380_000],
+            "encours_de_dette": [2_000_000, 800_000, 2_100_000, 850_000],
+        }
+    )
 
 
 @pytest.fixture
 def raw_communes_df() -> pd.DataFrame:
     """Simulates raw data from the communes CSV."""
-    return pd.DataFrame({
-        "code_insee": ["75056", "45234", "75001", "45001"],
-        "nom_standard": ["Paris", "Orleans", "Paris 1er", "Amilly"],
-        "reg_code": ["11", "24", "11", "24"],
-        "reg_nom": ["Ile-de-France", "Centre-Val de Loire", "Ile-de-France", "Centre-Val de Loire"],
-        "dep_code": ["75", "45", "75", "45"],
-        "dep_nom": ["Paris", "Loiret", "Paris", "Loiret"],
-        "population": [2_165_423, 116_685, 16_000, 14_500],
-        "superficie_km2": [105.4, 27.5, 1.8, 35.0],
-        "densite": [20_545, 4_243, 8_889, 414],
-    })
+    return pd.DataFrame(
+        {
+            "code_insee": ["75056", "45234", "75001", "45001"],
+            "nom_standard": ["Paris", "Orleans", "Paris 1er", "Amilly"],
+            "reg_code": ["11", "24", "11", "24"],
+            "reg_nom": [
+                "Ile-de-France",
+                "Centre-Val de Loire",
+                "Ile-de-France",
+                "Centre-Val de Loire",
+            ],
+            "dep_code": ["75", "45", "75", "45"],
+            "dep_nom": ["Paris", "Loiret", "Paris", "Loiret"],
+            "population": [2_165_423, 116_685, 16_000, 14_500],
+            "superficie_km2": [105.4, 27.5, 1.8, 35.0],
+            "densite": [20_545, 4_243, 8_889, 414],
+        }
+    )
 
 
 # ── Cleaner tests ─────────────────────────────────────────────────────────
+
 
 class TestCleaner:
     def test_normalize_columns(self):
@@ -94,10 +109,12 @@ class TestCleaner:
         assert pd.isna(result["amount"].tolist()[1])
 
     def test_clean_dataframe_integration(self):
-        df = pd.DataFrame({
-            "  Name ": ["  Alice ", "  Bob ", "  Alice "],
-            "Value!": [10, None, 10],
-        })
+        df = pd.DataFrame(
+            {
+                "  Name ": ["  Alice ", "  Bob ", "  Alice "],
+                "Value!": [10, None, 10],
+            }
+        )
         result = clean_dataframe(df)
         assert "name" in result.columns
         assert "value" in result.columns
@@ -106,6 +123,7 @@ class TestCleaner:
 
 
 # ── Transformer tests ─────────────────────────────────────────────────────
+
 
 class TestTransformRegionBudgets:
     def test_basic_transform(self, raw_budget_df):
@@ -169,23 +187,28 @@ class TestComputeRegionStats:
                 assert abs(row["revenue_per_capita"] - expected_rev) < 0.01
 
     def test_empty_on_no_match(self):
-        budgets = pd.DataFrame({
-            "year": [2023],
-            "region_code": ["999"],
-            "region_name": ["Nowhere"],
-            "total_revenue": [100],
-            "total_expenditure": [90],
-        })
-        communes = pd.DataFrame({
-            "region_code": ["1"],
-            "total_population": [1000],
-            "num_communes": [5],
-        })
+        budgets = pd.DataFrame(
+            {
+                "year": [2023],
+                "region_code": ["999"],
+                "region_name": ["Nowhere"],
+                "total_revenue": [100],
+                "total_expenditure": [90],
+            }
+        )
+        communes = pd.DataFrame(
+            {
+                "region_code": ["1"],
+                "total_population": [1000],
+                "num_communes": [5],
+            }
+        )
         result = compute_region_stats(budgets, communes)
         assert len(result) == 0
 
 
 # ── Edge cases ────────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_empty_dataframe_cleaning(self):
@@ -195,18 +218,22 @@ class TestEdgeCases:
 
     def test_zero_population_per_capita(self):
         """revenue_per_capita should not crash on zero population."""
-        budgets = pd.DataFrame({
-            "year": [2023],
-            "region_code": ["1"],
-            "region_name": ["Test"],
-            "total_revenue": [100_000],
-            "total_expenditure": [90_000],
-        })
-        communes = pd.DataFrame({
-            "region_code": ["1"],
-            "total_population": [0],
-            "num_communes": [0],
-        })
+        budgets = pd.DataFrame(
+            {
+                "year": [2023],
+                "region_code": ["1"],
+                "region_name": ["Test"],
+                "total_revenue": [100_000],
+                "total_expenditure": [90_000],
+            }
+        )
+        communes = pd.DataFrame(
+            {
+                "region_code": ["1"],
+                "total_population": [0],
+                "num_communes": [0],
+            }
+        )
         result = compute_region_stats(budgets, communes)
         assert len(result) == 1
         # Should not be infinity

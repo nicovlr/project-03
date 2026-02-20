@@ -71,7 +71,12 @@ def download_button_excel(df: pd.DataFrame, filename: str, label: str = "Telecha
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="data")
-    st.download_button(label, buf.getvalue(), file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button(
+        label,
+        buf.getvalue(),
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +108,7 @@ st.sidebar.caption(
 # ---------------------------------------------------------------------------
 # Page: Vue d'ensemble
 # ---------------------------------------------------------------------------
+
 
 def page_overview():
     st.title("🏛️ GovSense — Vue d'ensemble")
@@ -144,8 +150,12 @@ def page_overview():
     """)
     if ts is not None:
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=ts["year"], y=ts["revenue"], name="Recettes", marker_color="#2563eb"))
-        fig.add_trace(go.Bar(x=ts["year"], y=ts["expenditure"], name="Depenses", marker_color="#dc2626"))
+        fig.add_trace(
+            go.Bar(x=ts["year"], y=ts["revenue"], name="Recettes", marker_color="#2563eb")
+        )
+        fig.add_trace(
+            go.Bar(x=ts["year"], y=ts["expenditure"], name="Depenses", marker_color="#dc2626")
+        )
         fig.update_layout(
             title="Recettes vs Depenses totales par annee (toutes regions)",
             barmode="group",
@@ -182,6 +192,7 @@ def page_overview():
 # Page: Carte de France
 # ---------------------------------------------------------------------------
 
+
 def page_map():
     st.title("🗺️ Carte de France — Donnees regionales")
 
@@ -197,21 +208,25 @@ def page_map():
         st.warning("Aucune donnee de stats regionales. Lancez le pipeline.")
         return
 
-    metric = st.selectbox("Indicateur", [
-        "revenue_per_capita",
-        "expenditure_per_capita",
-        "total_population",
-        "total_revenue",
-        "total_expenditure",
-        "num_communes",
-    ], format_func=lambda x: {
-        "revenue_per_capita": "Recette par habitant (EUR)",
-        "expenditure_per_capita": "Depense par habitant (EUR)",
-        "total_population": "Population totale",
-        "total_revenue": "Recettes totales (EUR)",
-        "total_expenditure": "Depenses totales (EUR)",
-        "num_communes": "Nombre de communes",
-    }.get(x, x))
+    metric = st.selectbox(
+        "Indicateur",
+        [
+            "revenue_per_capita",
+            "expenditure_per_capita",
+            "total_population",
+            "total_revenue",
+            "total_expenditure",
+            "num_communes",
+        ],
+        format_func=lambda x: {
+            "revenue_per_capita": "Recette par habitant (EUR)",
+            "expenditure_per_capita": "Depense par habitant (EUR)",
+            "total_population": "Population totale",
+            "total_revenue": "Recettes totales (EUR)",
+            "total_expenditure": "Depenses totales (EUR)",
+            "num_communes": "Nombre de communes",
+        }.get(x, x),
+    )
 
     try:
         geojson = load_geojson()
@@ -259,6 +274,7 @@ def page_map():
 # ---------------------------------------------------------------------------
 # Page: Budgets regionaux
 # ---------------------------------------------------------------------------
+
 
 def page_budgets():
     st.title("💰 Budgets regionaux")
@@ -336,14 +352,18 @@ def page_budgets():
             ("Fonctionnement", r.get("operating_expenditure", 0)),
             ("Investissement", r.get("investment_expenditure", 0)),
         ]:
-            sunburst_data.append({
-                "region": r["region_name"],
-                "category": cat,
-                "value": val or 0,
-            })
+            sunburst_data.append(
+                {
+                    "region": r["region_name"],
+                    "category": cat,
+                    "value": val or 0,
+                }
+            )
     sdf = pd.DataFrame(sunburst_data)
     fig_sun = px.sunburst(
-        sdf, path=["category", "region"], values="value",
+        sdf,
+        path=["category", "region"],
+        values="value",
         title=f"Repartition fonctionnement / investissement ({selected_year})",
     )
     st.plotly_chart(fig_sun, use_container_width=True)
@@ -352,6 +372,7 @@ def page_budgets():
 # ---------------------------------------------------------------------------
 # Page: Demographie
 # ---------------------------------------------------------------------------
+
 
 def page_demographics():
     st.title("👥 Demographie des communes")
@@ -434,6 +455,7 @@ def page_demographics():
 # Page: Analyse par habitant
 # ---------------------------------------------------------------------------
 
+
 def page_per_capita():
     st.title("📊 Analyse par habitant")
     st.markdown("Croisement des budgets regionaux avec la demographie communale.")
@@ -499,17 +521,19 @@ def page_per_capita():
         categories = ["Recette/hab", "Depense/hab", "Population (M)", "Communes"]
         fig_radar = go.Figure()
         for _, r in top5.iterrows():
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[
-                    r["revenue_per_capita"],
-                    r["expenditure_per_capita"],
-                    r["total_population"] / 1_000_000,
-                    r["num_communes"],
-                ],
-                theta=categories,
-                fill="toself",
-                name=r["region_name"],
-            ))
+            fig_radar.add_trace(
+                go.Scatterpolar(
+                    r=[
+                        r["revenue_per_capita"],
+                        r["expenditure_per_capita"],
+                        r["total_population"] / 1_000_000,
+                        r["num_communes"],
+                    ],
+                    theta=categories,
+                    fill="toself",
+                    name=r["region_name"],
+                )
+            )
         fig_radar.update_layout(
             polar=dict(radialaxis=dict(visible=True)),
             title="Profil des 5 plus grandes regions",
@@ -526,16 +550,24 @@ def page_per_capita():
         region_data = data[data["region_name"] == selected_region]
 
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(
-            x=region_data["year"], y=region_data["revenue_per_capita"],
-            mode="lines+markers", name="Recette / hab.",
-            line=dict(color="#2563eb"),
-        ))
-        fig2.add_trace(go.Scatter(
-            x=region_data["year"], y=region_data["expenditure_per_capita"],
-            mode="lines+markers", name="Depense / hab.",
-            line=dict(color="#dc2626"),
-        ))
+        fig2.add_trace(
+            go.Scatter(
+                x=region_data["year"],
+                y=region_data["revenue_per_capita"],
+                mode="lines+markers",
+                name="Recette / hab.",
+                line=dict(color="#2563eb"),
+            )
+        )
+        fig2.add_trace(
+            go.Scatter(
+                x=region_data["year"],
+                y=region_data["expenditure_per_capita"],
+                mode="lines+markers",
+                name="Depense / hab.",
+                line=dict(color="#dc2626"),
+            )
+        )
         fig2.update_layout(
             title=f"Evolution — {selected_region}",
             xaxis_title="Annee",

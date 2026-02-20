@@ -14,7 +14,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://govsense:govsense@localhost:5432/govsense",
@@ -47,6 +46,7 @@ class Base(DeclarativeBase):
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class Dataset(Base):
     """Metadata about an ingested data.gouv.fr dataset."""
@@ -134,6 +134,7 @@ class RegionEmployment(Base):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def init_db() -> None:
     """Create all tables if they don't exist."""

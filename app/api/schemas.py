@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # Datasets
 # ---------------------------------------------------------------------------
+
 
 class DatasetOut(BaseModel):
     id: str
@@ -25,6 +25,7 @@ class DatasetOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Region budgets
 # ---------------------------------------------------------------------------
+
 
 class RegionBudgetOut(BaseModel):
     year: int
@@ -51,6 +52,7 @@ class BudgetListOut(BaseModel):
 # Communes
 # ---------------------------------------------------------------------------
 
+
 class CommuneOut(BaseModel):
     code_insee: str
     name: str
@@ -74,6 +76,7 @@ class CommuneListOut(BaseModel):
 # Region stats
 # ---------------------------------------------------------------------------
 
+
 class RegionStatsOut(BaseModel):
     year: int
     region_code: str
@@ -92,6 +95,7 @@ class RegionStatsOut(BaseModel):
 # KPIs
 # ---------------------------------------------------------------------------
 
+
 class YearRange(BaseModel):
     min: int | None = None
     max: int | None = None
@@ -107,6 +111,7 @@ class KPIsOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Employment
 # ---------------------------------------------------------------------------
+
 
 class RegionEmploymentOut(BaseModel):
     region_code: str
@@ -129,6 +134,7 @@ class EmploymentListOut(BaseModel):
 # Health
 # ---------------------------------------------------------------------------
 
+
 class HealthOut(BaseModel):
     status: str
     database: str
@@ -137,6 +143,7 @@ class HealthOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
 
 class MetricsOut(BaseModel):
     uptime_seconds: float
@@ -148,6 +155,7 @@ class MetricsOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
+
 
 class PipelineRunOut(BaseModel):
     status: str

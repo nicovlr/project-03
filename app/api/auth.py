@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
@@ -13,7 +12,7 @@ API_KEY = os.getenv("GOVSENSE_API_KEY")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-async def verify_api_key(key: Optional[str] = Security(api_key_header)) -> Optional[str]:
+async def verify_api_key(key: str | None = Security(api_key_header)) -> str | None:
     """Validate the API key if one is configured.
 
     When GOVSENSE_API_KEY is not set, all requests are allowed (open mode).
