@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.scheduler import start_scheduler
 from app.storage.database import init_db
 
 logging.basicConfig(
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Initializing database tables ...")
     init_db()
+    start_scheduler()
     logger.info("GovSense API is ready.")
     yield
     logger.info("Shutting down GovSense API.")

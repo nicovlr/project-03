@@ -6,26 +6,28 @@ Run with:  python -m app.pipeline
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.ingestion.data_gouv import (
+    DATASETS,
     get_dataset_metadata,
+    ingest_chomage_regional,
     ingest_communes,
     ingest_region_budgets,
-    DATASETS,
 )
 from app.processing.cleaner import clean_dataframe
 from app.processing.transformer import (
     aggregate_communes_by_region,
     compute_region_stats,
+    transform_employment,
     transform_region_budgets,
 )
 from app.storage.database import (
     Commune,
     Dataset,
     RegionBudget,
+    RegionEmployment,
     RegionStats,
     get_session_factory,
     init_db,
@@ -80,7 +82,6 @@ def _store_communes(db: Session, df) -> int:
     """Bulk insert commune rows."""
     db.query(Commune).delete()
 
-    # Detect column names (post-cleaning: snake_case)
     col_map = {
         "code_insee": ["code_insee", "code_commune_insee"],
         "name": ["nom_standard", "nom_commune", "name", "nom"],
@@ -139,6 +140,25 @@ def _store_region_stats(db: Session, df) -> int:
     return len(records)
 
 
+def _store_employment(db: Session, df) -> int:
+    """Bulk insert employment rows."""
+    db.query(RegionEmployment).delete()
+    records = []
+    for _, row in df.iterrows():
+        records.append(RegionEmployment(
+            region_code=str(row.get("region_code", "")),
+            region_name=row.get("region_name"),
+            month=str(row.get("month", "")),
+            salary_mass=row.get("salary_mass"),
+            salary_yoy_change=row.get("salary_yoy_change"),
+            partial_unemployment_base=row.get("partial_unemployment_base"),
+            partial_unemployment_share=row.get("partial_unemployment_share"),
+        ))
+    db.bulk_save_objects(records)
+    db.commit()
+    return len(records)
+
+
 def run_pipeline() -> dict[str, int]:
     """Execute the full ETL pipeline."""
     init_db()
@@ -151,16 +171,25 @@ def run_pipeline() -> dict[str, int]:
         raw_budgets = ingest_region_budgets()
         raw_communes = ingest_communes()
 
+        # Try to ingest employment data (non-blocking if it fails)
+        raw_employment = None
+        try:
+            raw_employment = ingest_chomage_regional()
+        except Exception:
+            logger.warning("Could not ingest employment data — skipping", exc_info=True)
+
         # 2. Clean
         logger.info("=== STEP 2: Cleaning data ===")
         clean_budgets = clean_dataframe(raw_budgets)
         clean_communes = clean_dataframe(raw_communes)
+        clean_employment = clean_dataframe(raw_employment) if raw_employment is not None else None
 
         # 3. Transform
         logger.info("=== STEP 3: Transforming data ===")
         budgets = transform_region_budgets(clean_budgets)
         communes_agg = aggregate_communes_by_region(clean_communes)
         region_stats = compute_region_stats(budgets, communes_agg)
+        employment = transform_employment(clean_employment) if clean_employment is not None else None
 
         # 4. Store
         logger.info("=== STEP 4: Storing to database ===")
@@ -170,6 +199,10 @@ def run_pipeline() -> dict[str, int]:
         counts["budgets"] = _store_budgets(db, budgets)
         counts["communes"] = _store_communes(db, clean_communes)
         counts["region_stats"] = _store_region_stats(db, region_stats)
+
+        if employment is not None and not employment.empty:
+            _save_dataset_meta(db, DATASETS["chomage_regional"])
+            counts["employment"] = _store_employment(db, employment)
 
         logger.info("=== Pipeline complete ===")
         logger.info("Stored: %s", counts)

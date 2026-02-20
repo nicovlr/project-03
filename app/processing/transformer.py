@@ -172,6 +172,69 @@ def compute_region_stats(
 
 
 # ---------------------------------------------------------------------------
+# Employment / salary mass helpers
+# ---------------------------------------------------------------------------
+
+EMPLOYMENT_COLUMN_MAP = {
+    "region": "region_name",
+    "code_region": "region_code",
+    "dernier_jour_du_mois": "month_date",
+    "masse_salariale_brute": "salary_mass",
+    "glissement_annuel_masse_salariale": "salary_yoy_change",
+    "assiette_chomage_partiel": "partial_unemployment_base",
+    "part_de_l_assiette_chomage_partiel": "partial_unemployment_share",
+}
+
+
+def transform_employment(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize the regional employment/salary mass DataFrame.
+
+    Returns a DataFrame with columns:
+        region_code, region_name, month, salary_mass,
+        salary_yoy_change, partial_unemployment_base, partial_unemployment_share
+    """
+    df = df.copy()
+
+    rename = {k: v for k, v in EMPLOYMENT_COLUMN_MAP.items() if k in df.columns}
+    df = df.rename(columns=rename)
+
+    # Detect region code and name columns
+    code_col = _find_col(df, ["region_code", "code_region"])
+    name_col = _find_col(df, ["region_name", "region", "nom_region"])
+
+    if code_col and code_col != "region_code":
+        df = df.rename(columns={code_col: "region_code"})
+    if name_col and name_col != "region_name":
+        df = df.rename(columns={name_col: "region_name"})
+
+    # Extract YYYY-MM from date column
+    date_col = _find_col(df, ["month_date", "dernier_jour_du_mois"])
+    if date_col:
+        df["month"] = pd.to_datetime(df[date_col], errors="coerce").dt.strftime("%Y-%m")
+    elif "month" not in df.columns:
+        logger.warning("No date column found in employment data")
+        return pd.DataFrame()
+
+    # Coerce numeric columns
+    for col in ["salary_mass", "salary_yoy_change", "partial_unemployment_base", "partial_unemployment_share"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    if "region_code" in df.columns:
+        df["region_code"] = df["region_code"].astype(str).str.strip()
+
+    keep = [c for c in [
+        "region_code", "region_name", "month",
+        "salary_mass", "salary_yoy_change",
+        "partial_unemployment_base", "partial_unemployment_share",
+    ] if c in df.columns]
+
+    df = df[keep].dropna(subset=["month"])
+    logger.info("Transformed employment data: %d rows", len(df))
+    return df
+
+
+# ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
 

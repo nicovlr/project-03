@@ -116,6 +116,21 @@ class RegionStats(Base):
     num_communes = Column(Integer)
 
 
+class RegionEmployment(Base):
+    """Regional employment / salary mass data (Urssaf)."""
+
+    __tablename__ = "region_employment"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    region_code = Column(String(8), index=True)
+    region_name = Column(String(256))
+    month = Column(String(10), index=True)  # YYYY-MM
+    salary_mass = Column(Float)
+    salary_yoy_change = Column(Float)  # Year-on-year % change
+    partial_unemployment_base = Column(Float)
+    partial_unemployment_share = Column(Float)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

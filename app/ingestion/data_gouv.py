@@ -20,6 +20,7 @@ BASE_URL = "https://www.data.gouv.fr/api/1"
 DATASETS = {
     "region_budgets": "comptes-individuels-des-regions-fichier-global-a-compter-de-2008",
     "communes": "communes-et-villes-de-france-en-csv-excel-json-parquet-et-feather",
+    "chomage_regional": "masse-salariale-et-assiette-chomage-partiel-mensuelles-du-secteur-prive-par-region",
 }
 
 # Timeouts (connect, read) in seconds
@@ -119,3 +120,12 @@ def ingest_communes() -> pd.DataFrame:
     if not csv_resources:
         raise RuntimeError("No CSV resource found for communes dataset")
     return download_csv(csv_resources[0]["url"], sep=",")
+
+
+def ingest_chomage_regional() -> pd.DataFrame:
+    """Download the regional unemployment / salary mass dataset CSV."""
+    meta = get_dataset_metadata(DATASETS["chomage_regional"])
+    csv_resources = list_csv_resources(meta)
+    if not csv_resources:
+        raise RuntimeError("No CSV resource found for chomage regional dataset")
+    return download_csv(csv_resources[0]["url"], sep=";")

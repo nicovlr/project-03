@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import io
 import os
 
+import httpx
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from sqlalchemy import create_engine, text
+
+from dashboard.geo import REGIONS_GEOJSON_URL
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -32,10 +36,42 @@ def get_engine():
     return create_engine(DATABASE_URL, pool_pre_ping=True)
 
 
+@st.cache_data(ttl=600)
+def load_geojson():
+    """Fetch the GeoJSON of French regions (cached 10 min)."""
+    resp = httpx.get(REGIONS_GEOJSON_URL, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def query_df(sql: str) -> pd.DataFrame:
     engine = get_engine()
     with engine.connect() as conn:
         return pd.read_sql(text(sql), conn)
+
+
+def safe_query(sql: str) -> pd.DataFrame | None:
+    try:
+        df = query_df(sql)
+        return df if not df.empty else None
+    except Exception as exc:
+        st.error(f"Erreur base de donnees : {exc}")
+        return None
+
+
+def download_button_csv(df: pd.DataFrame, filename: str, label: str = "Telecharger CSV"):
+    """Render a CSV download button."""
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False)
+    st.download_button(label, buf.getvalue(), file_name=filename, mime="text/csv")
+
+
+def download_button_excel(df: pd.DataFrame, filename: str, label: str = "Telecharger Excel"):
+    """Render an Excel download button."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="data")
+    st.download_button(label, buf.getvalue(), file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 # ---------------------------------------------------------------------------
@@ -48,27 +84,20 @@ st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
     "Navigation",
-    ["Vue d'ensemble", "Budgets regionaux", "Demographie", "Analyse par habitant"],
+    [
+        "Vue d'ensemble",
+        "Carte de France",
+        "Budgets regionaux",
+        "Demographie",
+        "Analyse par habitant",
+    ],
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(
-    "Source: [data.gouv.fr](https://www.data.gouv.fr)  \n"
+st.sidebar.caption(
+    "Source : [data.gouv.fr](https://www.data.gouv.fr)  \n"
     "Donnees ouvertes du gouvernement francais."
 )
-
-
-# ---------------------------------------------------------------------------
-# Helper: safe query
-# ---------------------------------------------------------------------------
-
-def safe_query(sql: str) -> pd.DataFrame | None:
-    try:
-        df = query_df(sql)
-        return df if not df.empty else None
-    except Exception as exc:
-        st.error(f"Erreur de connexion a la base de donnees : {exc}")
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -79,11 +108,10 @@ def page_overview():
     st.title("🏛️ GovSense — Vue d'ensemble")
     st.markdown(
         "Tableau de bord operationnel construit a partir des donnees ouvertes de "
-        "**data.gouv.fr**. Croisement budget regional × demographie pour une "
+        "**data.gouv.fr**. Croisement budget regional x demographie pour une "
         "analyse decisionnelle par habitant."
     )
 
-    # KPIs
     kpi_data = safe_query("""
         SELECT
             (SELECT COUNT(*) FROM communes) AS total_communes,
@@ -93,16 +121,16 @@ def page_overview():
             (SELECT MAX(year) FROM region_budgets) AS max_year
     """)
 
-    if kpi_data is not None:
-        row = kpi_data.iloc[0]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Communes", f"{int(row['total_communes']):,}")
-        c2.metric("Regions", int(row["total_regions"]))
-        c3.metric("Population totale", f"{int(row['total_population']):,}")
-        c4.metric("Annees couvertes", f"{row['min_year']} – {row['max_year']}")
-    else:
+    if kpi_data is None:
         st.warning("Aucune donnee disponible. Lancez le pipeline d'ingestion.")
         return
+
+    row = kpi_data.iloc[0]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Communes", f"{int(row['total_communes']):,}")
+    c2.metric("Regions", int(row["total_regions"]))
+    c3.metric("Population totale", f"{int(row['total_population']):,}")
+    c4.metric("Annees couvertes", f"{row['min_year']} – {row['max_year']}")
 
     st.markdown("---")
 
@@ -151,6 +179,84 @@ def page_overview():
 
 
 # ---------------------------------------------------------------------------
+# Page: Carte de France
+# ---------------------------------------------------------------------------
+
+def page_map():
+    st.title("🗺️ Carte de France — Donnees regionales")
+
+    data = safe_query("""
+        SELECT region_code, region_name,
+               total_population, total_revenue, total_expenditure,
+               revenue_per_capita, expenditure_per_capita, num_communes
+        FROM region_stats
+        WHERE year = (SELECT MAX(year) FROM region_stats)
+    """)
+
+    if data is None:
+        st.warning("Aucune donnee de stats regionales. Lancez le pipeline.")
+        return
+
+    metric = st.selectbox("Indicateur", [
+        "revenue_per_capita",
+        "expenditure_per_capita",
+        "total_population",
+        "total_revenue",
+        "total_expenditure",
+        "num_communes",
+    ], format_func=lambda x: {
+        "revenue_per_capita": "Recette par habitant (EUR)",
+        "expenditure_per_capita": "Depense par habitant (EUR)",
+        "total_population": "Population totale",
+        "total_revenue": "Recettes totales (EUR)",
+        "total_expenditure": "Depenses totales (EUR)",
+        "num_communes": "Nombre de communes",
+    }.get(x, x))
+
+    try:
+        geojson = load_geojson()
+    except Exception:
+        st.error("Impossible de charger le GeoJSON des regions.")
+        return
+
+    fig = px.choropleth(
+        data,
+        geojson=geojson,
+        locations="region_name",
+        featureidkey="properties.nom",
+        color=metric,
+        hover_name="region_name",
+        hover_data={
+            "total_population": ":,",
+            "revenue_per_capita": ":.0f",
+            "expenditure_per_capita": ":.0f",
+        },
+        color_continuous_scale="Viridis",
+        title=f"Carte des regions — {metric.replace('_', ' ').title()}",
+    )
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False,
+        projection_type="mercator",
+    )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=40, b=0),
+        height=600,
+        template="plotly_white",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Data table + export
+    st.subheader("Donnees")
+    st.dataframe(data, use_container_width=True, hide_index=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        download_button_csv(data, "carte_regions.csv")
+    with col2:
+        download_button_excel(data, "carte_regions.xlsx")
+
+
+# ---------------------------------------------------------------------------
 # Page: Budgets regionaux
 # ---------------------------------------------------------------------------
 
@@ -179,7 +285,19 @@ def page_budgets():
         st.info("Pas de donnees pour cette annee.")
         return
 
+    # KPIs
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Recettes totales", f"{data['total_revenue'].sum():,.0f} EUR")
+    c2.metric("Depenses totales", f"{data['total_expenditure'].sum():,.0f} EUR")
+    c3.metric("Dette totale", f"{data['debt'].sum():,.0f} EUR")
+
     st.dataframe(data, use_container_width=True, hide_index=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        download_button_csv(data, f"budgets_{selected_year}.csv")
+    with col2:
+        download_button_excel(data, f"budgets_{selected_year}.xlsx")
 
     # Bar chart
     fig = px.bar(
@@ -210,6 +328,25 @@ def page_budgets():
         )
         fig_debt.update_layout(template="plotly_white", xaxis_tickangle=-45)
         st.plotly_chart(fig_debt, use_container_width=True)
+
+    # Sunburst: operating vs investment
+    sunburst_data = []
+    for _, r in data.iterrows():
+        for cat, val in [
+            ("Fonctionnement", r.get("operating_expenditure", 0)),
+            ("Investissement", r.get("investment_expenditure", 0)),
+        ]:
+            sunburst_data.append({
+                "region": r["region_name"],
+                "category": cat,
+                "value": val or 0,
+            })
+    sdf = pd.DataFrame(sunburst_data)
+    fig_sun = px.sunburst(
+        sdf, path=["category", "region"], values="value",
+        title=f"Repartition fonctionnement / investissement ({selected_year})",
+    )
+    st.plotly_chart(fig_sun, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +388,11 @@ def page_demographics():
 
     if stats is not None:
         st.dataframe(stats, use_container_width=True, hide_index=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            download_button_csv(stats, "demographie_regions.csv")
+        with col2:
+            download_button_excel(stats, "demographie_regions.xlsx")
 
         fig = px.treemap(
             stats,
@@ -261,6 +403,19 @@ def page_demographics():
             color_continuous_scale="Viridis",
         )
         st.plotly_chart(fig, use_container_width=True)
+
+        # Density bar chart
+        fig_dens = px.bar(
+            stats.sort_values("densite_moy", ascending=False),
+            x="region_name",
+            y="densite_moy",
+            title="Densite moyenne par region (hab/km2)",
+            labels={"densite_moy": "hab/km2", "region_name": ""},
+            color="densite_moy",
+            color_continuous_scale="YlOrRd",
+        )
+        fig_dens.update_layout(template="plotly_white", xaxis_tickangle=-45)
+        st.plotly_chart(fig_dens, use_container_width=True)
 
     # Top communes
     top_communes = safe_query(f"""
@@ -315,6 +470,11 @@ def page_per_capita():
         use_container_width=True,
         hide_index=True,
     )
+    col1, col2 = st.columns(2)
+    with col1:
+        download_button_csv(filtered, f"stats_par_habitant_{selected_year}.csv")
+    with col2:
+        download_button_excel(filtered, f"stats_par_habitant_{selected_year}.xlsx")
 
     # Scatter: revenue per capita vs expenditure per capita
     fig = px.scatter(
@@ -333,7 +493,31 @@ def page_per_capita():
     fig.update_layout(template="plotly_white")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Evolution over time for selected region
+    # Radar chart for top 5 regions
+    top5 = filtered.nlargest(5, "total_population")
+    if len(top5) >= 3:
+        categories = ["Recette/hab", "Depense/hab", "Population (M)", "Communes"]
+        fig_radar = go.Figure()
+        for _, r in top5.iterrows():
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[
+                    r["revenue_per_capita"],
+                    r["expenditure_per_capita"],
+                    r["total_population"] / 1_000_000,
+                    r["num_communes"],
+                ],
+                theta=categories,
+                fill="toself",
+                name=r["region_name"],
+            ))
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True)),
+            title="Profil des 5 plus grandes regions",
+            template="plotly_white",
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    # Evolution over time
     st.markdown("---")
     st.subheader("Evolution temporelle")
     region_list = sorted(data["region_name"].dropna().unique())
@@ -367,6 +551,7 @@ def page_per_capita():
 
 PAGES = {
     "Vue d'ensemble": page_overview,
+    "Carte de France": page_map,
     "Budgets regionaux": page_budgets,
     "Demographie": page_demographics,
     "Analyse par habitant": page_per_capita,
